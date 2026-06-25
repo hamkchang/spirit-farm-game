@@ -2,6 +2,10 @@
 
 一個純 HTML/CSS/JavaScript 的農場遊戲原型。玩家可以註冊、種五種樹、完成每日任務取得肥料，並在世界頁看到其他玩家的農場狀態。
 
+## 線上網址
+
+https://hamkchang.github.io/spirit-farm-game/
+
 ## 開啟方式
 
 直接開啟 `index.html` 即可遊玩。
