@@ -1,0 +1,17 @@
+{
+  "name": "心田農場",
+  "short_name": "心田農場",
+  "description": "以任務肥料養成樹木的農場遊戲原型。",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f1f6f5",
+  "theme_color": "#2f6f57",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
