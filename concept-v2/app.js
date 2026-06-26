@@ -1,7 +1,9 @@
 (function () {
   "use strict";
 
+  const STORAGE_KEY = "spirit-farm-al.v2";
   const summitMerit = 550000;
+  const maxTreeStage = 5;
   const app = document.getElementById("alApp");
 
   const trees = {
@@ -12,7 +14,7 @@
       task: "乾坤棒",
       color: "#3ead64",
       light: "#a6ef83",
-      al: "GE 確認身體任務回饋，OP 控制每日節奏。",
+      al: "GE 檢查身體任務與健康養分是否平衡，OP 控制每日節奏。",
     },
     wisdom: {
       key: "wisdom",
@@ -21,7 +23,7 @@
       task: "靈修",
       color: "#4f85dc",
       light: "#a7d9ff",
-      al: "GPT5.5 強化敘事，GE 檢查反思品質。",
+      al: "GPT5.5 強化敘事與反思感，GE 檢查心得品質。",
     },
     wealth: {
       key: "wealth",
@@ -30,7 +32,7 @@
       task: "點香",
       color: "#e6aa31",
       light: "#ffe48a",
-      al: "OP 管獎勵邏輯，GPT5.5 讓儀式感更清楚。",
+      al: "OP 管理獎勵與防濫用，GPT5.5 維持儀式感。",
     },
   };
 
@@ -55,75 +57,270 @@
     },
   ];
 
-  const state = {
+  const ui = {
+    authMode: "login",
     view: "oasis",
-    selectedTree: "health",
-    resources: {
-      health: 8,
-      wisdom: 6,
-      wealth: 4,
-      merit: 186000,
-    },
-    treeStages: {
-      health: 3,
-      wisdom: 2,
-      wealth: 1,
-    },
-    completedTasks: {
-      health: false,
-      wisdom: false,
-      wealth: false,
-    },
-    players: [
-      { id: "self", name: "阿光", merit: 186000, color: "#ff8a4f" },
-      { id: "yun", name: "雲青", merit: 548000, color: "#68c96b" },
-      { id: "mei", name: "小梅", merit: 455000, color: "#e06db3" },
-      { id: "lin", name: "林山", merit: 320000, color: "#5eb2df" },
-      { id: "po", name: "伯仁", merit: 92000, color: "#b681e8" },
-    ],
+    toastTimer: null,
   };
 
-  let toastTimer = null;
+  let state = loadState();
 
   app.addEventListener("click", handleClick);
-  app.addEventListener("submit", (event) => event.preventDefault());
+  app.addEventListener("submit", handleSubmit);
   render();
 
+  function loadState() {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        return normalizeState(JSON.parse(raw));
+      }
+    } catch (error) {
+      console.warn("Unable to load AL save.", error);
+    }
+
+    const seeded = createSeedState();
+    saveState(seeded);
+    return seeded;
+  }
+
+  function normalizeState(value) {
+    const safe = value && typeof value === "object" ? value : {};
+    const users = Array.isArray(safe.users) ? safe.users.map(normalizeUser) : [];
+    const normalized = {
+      version: 2,
+      currentUserId: typeof safe.currentUserId === "string" ? safe.currentUserId : null,
+      users: users.length ? users : createSeedState().users,
+    };
+
+    if (normalized.currentUserId && !normalized.users.some((user) => user.id === normalized.currentUserId)) {
+      normalized.currentUserId = null;
+    }
+
+    return normalized;
+  }
+
+  function normalizeUser(user) {
+    const now = new Date().toISOString();
+    return {
+      id: user.id || makeId("user"),
+      username: String(user.username || "farmer"),
+      password: String(user.password || ""),
+      role: user.role === "gm" ? "gm" : "player",
+      oasisName: String(user.oasisName || user.farmName || "未命名綠洲"),
+      intention: String(user.intention || ""),
+      color: user.color || randomColor(user.username || "farmer"),
+      selectedTree: trees[user.selectedTree] ? user.selectedTree : "health",
+      createdAt: user.createdAt || now,
+      updatedAt: user.updatedAt || now,
+      resources: normalizeResources(user.resources),
+      treeStages: normalizeTreeStages(user.treeStages),
+      tasksByDate: user.tasksByDate && typeof user.tasksByDate === "object" ? user.tasksByDate : {},
+      taskLog: Array.isArray(user.taskLog) ? user.taskLog.slice(0, 30) : [],
+    };
+  }
+
+  function normalizeResources(resources) {
+    const safe = resources && typeof resources === "object" ? resources : {};
+    return {
+      health: toInt(safe.health, 0),
+      wisdom: toInt(safe.wisdom, 0),
+      wealth: toInt(safe.wealth, 0),
+      merit: clamp(toInt(safe.merit, 0), 0, summitMerit),
+    };
+  }
+
+  function normalizeTreeStages(stages) {
+    const safe = stages && typeof stages === "object" ? stages : {};
+    return {
+      health: clamp(toInt(safe.health, 1), 1, maxTreeStage),
+      wisdom: clamp(toInt(safe.wisdom, 1), 1, maxTreeStage),
+      wealth: clamp(toInt(safe.wealth, 1), 1, maxTreeStage),
+    };
+  }
+
+  function createSeedState() {
+    const users = [
+      createUser({
+        username: "yuna",
+        password: "demo",
+        oasisName: "晨光綠洲",
+        intention: "今天先照顧好心，再讓樹慢慢長大。",
+        resources: { health: 5, wisdom: 7, wealth: 3, merit: 186000 },
+        treeStages: { health: 3, wisdom: 4, wealth: 2 },
+        color: "#ff8a4f",
+      }),
+      createUser({
+        username: "kai",
+        password: "demo",
+        oasisName: "山風綠洲",
+        intention: "用穩定節奏累積公德數數。",
+        resources: { health: 4, wisdom: 2, wealth: 6, merit: 320000 },
+        treeStages: { health: 4, wisdom: 2, wealth: 3 },
+        color: "#5eb2df",
+      }),
+      createUser({
+        username: "mei",
+        password: "demo",
+        oasisName: "花泉綠洲",
+        intention: "讓每一個任務都有一點祝福。",
+        resources: { health: 6, wisdom: 5, wealth: 5, merit: 455000 },
+        treeStages: { health: 5, wisdom: 3, wealth: 4 },
+        color: "#e06db3",
+      }),
+      createUser({
+        username: "gm",
+        password: "demo",
+        role: "gm",
+        oasisName: "聖山管理所",
+        intention: "GM 可發放公德數數並觀察排行。",
+        resources: { health: 9, wisdom: 9, wealth: 9, merit: 548000 },
+        treeStages: { health: 5, wisdom: 5, wealth: 5 },
+        color: "#68c96b",
+      }),
+    ];
+
+    return {
+      version: 2,
+      currentUserId: null,
+      users,
+    };
+  }
+
+  function createUser(input) {
+    const now = new Date().toISOString();
+    return normalizeUser({
+      id: makeId("user"),
+      username: input.username,
+      password: input.password,
+      role: input.role || "player",
+      oasisName: input.oasisName,
+      intention: input.intention || "",
+      selectedTree: input.selectedTree || "health",
+      resources: input.resources || { health: 1, wisdom: 1, wealth: 1, merit: 0 },
+      treeStages: input.treeStages || { health: 1, wisdom: 1, wealth: 1 },
+      color: input.color || randomColor(input.username),
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  function saveState(nextState) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState || state));
+  }
+
   function render() {
+    const user = getCurrentUser();
+    if (!user) {
+      app.innerHTML = renderAuth();
+      return;
+    }
+
+    if (ui.view === "gm" && user.role !== "gm") {
+      ui.view = "oasis";
+    }
+
     app.innerHTML = `
       <div class="app">
         <div class="shell">
-          ${renderHud()}
-          <main class="stage">${renderView()}</main>
+          ${renderHud(user)}
+          <main class="stage">${renderView(user)}</main>
         </div>
         <div class="toast" aria-live="polite"></div>
       </div>
     `;
   }
 
-  function renderHud() {
+  function renderAuth() {
+    const isRegister = ui.authMode === "register";
+    return `
+      <main class="auth-scene">
+        <section class="auth-copy">
+          <span class="brand-mark">${icon("al")}</span>
+          <div>
+            <p class="eyebrow">AL · OP + GE + GPT5.5</p>
+            <h1>綠洲聖山</h1>
+            <p>完成每日任務取得健康、智慧、財富數數，培育三棵生命樹；GM 發放公德數數後，玩家角色會在聖山路線上前進。</p>
+          </div>
+        </section>
+        <section class="auth-card">
+          <div class="auth-tabs">
+            <button class="auth-tab ${!isRegister ? "is-active" : ""}" type="button" data-action="auth-mode" data-mode="login">登入</button>
+            <button class="auth-tab ${isRegister ? "is-active" : ""}" type="button" data-action="auth-mode" data-mode="register">註冊</button>
+          </div>
+          ${isRegister ? renderRegisterForm() : renderLoginForm()}
+          <p class="auth-hint">玩家範例：yuna / demo、kai / demo。GM 後台：gm / demo。</p>
+        </section>
+        <div class="toast" aria-live="polite"></div>
+      </main>
+    `;
+  }
+
+  function renderLoginForm() {
+    return `
+      <form class="auth-form" data-auth-form="login">
+        <label>
+          <span>玩家名稱</span>
+          <input name="username" autocomplete="username" required />
+        </label>
+        <label>
+          <span>密碼</span>
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button class="action-button" type="submit">${icon("spark")}進入綠洲</button>
+      </form>
+    `;
+  }
+
+  function renderRegisterForm() {
+    return `
+      <form class="auth-form" data-auth-form="register">
+        <label>
+          <span>玩家名稱</span>
+          <input name="username" autocomplete="username" minlength="2" maxlength="18" required />
+        </label>
+        <label>
+          <span>密碼</span>
+          <input name="password" type="password" autocomplete="new-password" minlength="4" required />
+        </label>
+        <label>
+          <span>綠洲名稱</span>
+          <input name="oasisName" maxlength="24" required />
+        </label>
+        <label>
+          <span>今日心願</span>
+          <input name="intention" maxlength="80" placeholder="例如：今天照顧健康樹樹" />
+        </label>
+        <button class="action-button" type="submit">${icon("leaf")}建立綠洲</button>
+      </form>
+    `;
+  }
+
+  function renderHud(user) {
     const nav = [
       ["oasis", "綠洲", icon("leaf")],
       ["tasks", "任務", icon("scroll")],
       ["mountain", "聖山", icon("mountain")],
       ["leaderboard", "排行", icon("rank")],
-      ["gm", "GM", icon("star")],
     ];
+    if (user.role === "gm") {
+      nav.push(["gm", "GM", icon("star")]);
+    }
 
     return `
       <header class="hud">
         <section class="brand">
           <span class="brand-mark">${icon("al")}</span>
           <div>
-            <strong>AL 精緻版</strong>
-            <span>OP + GE + GPT5.5</span>
+            <strong>${escapeHtml(user.oasisName)}</strong>
+            <span>${escapeHtml(user.username)} · ${user.role === "gm" ? "GM" : "玩家"}</span>
           </div>
         </section>
         <nav class="nav" aria-label="遊戲區塊">
           ${nav
             .map(
               ([key, label, svg]) => `
-                <button class="nav-button ${state.view === key ? "is-active" : ""}" type="button" data-action="view" data-view="${key}">
+                <button class="nav-button ${ui.view === key ? "is-active" : ""}" type="button" data-action="view" data-view="${key}">
                   ${svg}
                   <span>${label}</span>
                 </button>
@@ -132,57 +329,59 @@
             .join("")}
         </nav>
         <section class="resource-bar" aria-label="資源">
-          ${resource("health", state.resources.health)}
-          ${resource("wisdom", state.resources.wisdom)}
-          ${resource("wealth", state.resources.wealth)}
-          ${resource("merit", compact(state.resources.merit))}
+          ${resource("health", user.resources.health)}
+          ${resource("wisdom", user.resources.wisdom)}
+          ${resource("wealth", user.resources.wealth)}
+          ${resource("merit", compact(user.resources.merit))}
+          <button class="logout-button" type="button" data-action="logout">切換</button>
         </section>
       </header>
     `;
   }
 
-  function renderView() {
-    if (state.view === "tasks") return renderTasks();
-    if (state.view === "mountain") return renderMountain();
-    if (state.view === "leaderboard") return renderLeaderboard();
-    if (state.view === "gm") return renderGm();
-    return renderOasis();
+  function renderView(user) {
+    if (ui.view === "tasks") return renderTasks(user);
+    if (ui.view === "mountain") return renderMountain(user);
+    if (ui.view === "leaderboard") return renderLeaderboard();
+    if (ui.view === "gm") return renderGm();
+    return renderOasis(user);
   }
 
-  function renderOasis() {
-    const tree = trees[state.selectedTree];
+  function renderOasis(user) {
+    const tree = trees[user.selectedTree];
     return `
       <section class="scene oasis">
         <div class="scene-content">
           <aside class="panel">
             <div class="panel-head">
-              <h2>AL 設計指揮</h2>
-              <span class="tag">v2</span>
+              <h2>AL 架構</h2>
+              <span class="tag">正式 UI</span>
             </div>
             <div class="agent-row">
-              ${agentChip("OP", "規則與流程", "控制施肥、任務、GM 權限")}
-              ${agentChip("GE", "成長平衡", "檢查任務與資源對應")}
-              ${agentChip("GPT5.5", "美術敘事", "統一綠洲與聖山世界觀")}
+              ${agentChip("OP", "流程控制", "任務、施肥、GM 權限與資料保存")}
+              ${agentChip("GE", "平衡校正", "三種數數與三種樹不可混用")}
+              ${agentChip("GPT5.5", "敘事美術", "全站維持精緻綠洲與聖山風格")}
             </div>
           </aside>
 
           <section class="hero-tree-area" aria-label="綠洲種樹主畫面">
-            ${treeArt(tree.key, "hero-tree", Math.max(4, state.treeStages[tree.key]))}
+            ${treeArt(tree.key, "hero-tree", Math.max(4, user.treeStages[tree.key]))}
             <div class="tree-selector">
-              ${Object.values(trees).map(renderTreeOption).join("")}
+              ${Object.values(trees).map((entry) => renderTreeOption(user, entry)).join("")}
             </div>
           </section>
 
           <aside class="panel">
             <div class="panel-head">
               <h2>${tree.name}</h2>
-              <span class="tag">第 ${state.treeStages[tree.key]} 階</span>
+              <span class="tag">第 ${user.treeStages[tree.key]} 階</span>
             </div>
             <div class="metric-grid">
-              ${metric(tree.key, state.resources[tree.key], tree.fertilizer)}
-              ${metric("merit", compact(state.resources.merit), "公德數數")}
+              ${metric(tree.key, user.resources[tree.key], tree.fertilizer)}
+              ${metric("merit", compact(user.resources.merit), "公德數數")}
+              ${metric("wisdom", `${completedCountToday(user)} / 3`, "今日任務")}
             </div>
-            <p>${tree.al}</p>
+            <p>${escapeHtml(user.intention || tree.al)}</p>
             <div class="action-stack">
               <button class="action-button" type="button" data-action="feed">${icon("spark")}對應施肥</button>
               <button class="action-button secondary" type="button" data-action="view" data-view="tasks">${icon("scroll")}取得肥料</button>
@@ -193,9 +392,9 @@
     `;
   }
 
-  function renderTreeOption(tree) {
+  function renderTreeOption(user, tree) {
     return `
-      <button class="tree-option ${state.selectedTree === tree.key ? "is-active" : ""}" type="button" data-action="tree" data-tree="${tree.key}">
+      <button class="tree-option ${user.selectedTree === tree.key ? "is-active" : ""}" type="button" data-action="tree" data-tree="${tree.key}">
         ${treeArt(tree.key, "tree-icon", 2)}
         <span>
           <strong>${tree.name}</strong>
@@ -205,30 +404,30 @@
     `;
   }
 
-  function renderTasks() {
+  function renderTasks(user) {
     return `
       <section class="scene tasks">
         <div class="scene-content two-col task-layout">
           <section class="task-grid">
-            ${tasks.map(renderTaskCard).join("")}
+            ${tasks.map((task) => renderTaskCard(user, task)).join("")}
           </section>
           <aside class="panel">
             <div class="panel-head">
               <h2>今日任務節奏</h2>
-              <span class="tag">${tasks.filter((task) => state.completedTasks[task.key]).length} / 3</span>
+              <span class="tag">${completedCountToday(user)} / 3</span>
             </div>
             <div class="metric-grid">
-              ${tasks.map((task) => metric(task.key, state.completedTasks[task.key] ? "+1" : "0", task.reward)).join("")}
+              ${tasks.map((task) => metric(task.key, isTaskDoneToday(user, task.key) ? "+1" : "0", task.reward)).join("")}
             </div>
-            <p>AL 建議任務先保持三條清楚線：身體、心智、財富。玩家每天完成任務後才有對應數數，避免資源混用。</p>
+            <p>每天三個任務各領一次。健康數數只能餵健康樹樹，智慧數數只能餵智慧樹樹，財富數數只能餵財富樹樹。</p>
           </aside>
         </div>
       </section>
     `;
   }
 
-  function renderTaskCard(task) {
-    const done = state.completedTasks[task.key];
+  function renderTaskCard(user, task) {
+    const done = isTaskDoneToday(user, task.key);
     return `
       <article class="task-card ${done ? "is-done" : ""}">
         <div class="panel-head">
@@ -246,9 +445,8 @@
     `;
   }
 
-  function renderMountain() {
-    const ranked = rankedPlayers();
-    const self = state.players.find((player) => player.id === "self");
+  function renderMountain(user) {
+    const ranked = rankedUsers();
     return `
       <section class="scene mountain">
         <div class="scene-content two-col">
@@ -261,11 +459,11 @@
               <span class="tag">55萬登頂</span>
             </div>
             <div class="metric-grid">
-              ${metric("merit", compact(self.merit), "我的公德數數")}
-              ${metric("wisdom", `${Math.floor(progress(self.merit) * 100)}%`, "目前山路比例")}
+              ${metric("merit", compact(user.resources.merit), "我的公德數數")}
+              ${metric("wisdom", `${Math.floor(progress(user.resources.merit) * 100)}%`, "目前山路比例")}
             </div>
             <div class="leader-list">
-              ${ranked.slice(0, 4).map((player, index) => leaderRow(player, index)).join("")}
+              ${ranked.slice(0, 4).map((entry, index) => leaderRow(entry, index)).join("")}
             </div>
           </aside>
         </div>
@@ -274,7 +472,7 @@
   }
 
   function renderLeaderboard() {
-    const ranked = rankedPlayers();
+    const ranked = rankedUsers();
     const podium = [ranked[1], ranked[0], ranked[2]].filter(Boolean);
     return `
       <section class="scene observatory">
@@ -286,14 +484,14 @@
             </div>
             <div class="podium-grid">
               ${podium
-                .map((player) => {
-                  const rank = ranked.indexOf(player) + 1;
+                .map((user) => {
+                  const rank = ranked.indexOf(user) + 1;
                   const className = rank === 1 ? "first" : rank === 2 ? "second" : "third";
                   return `
                     <div class="podium ${className}">
-                      ${character(player.color, "avatar")}
-                      <strong>#${rank} ${player.name}</strong>
-                      <span class="leader-sub">${format(player.merit)} 公德數數</span>
+                      ${character(user.color, "avatar")}
+                      <strong>#${rank} ${escapeHtml(user.username)}</strong>
+                      <span class="leader-sub">${format(user.resources.merit)} 公德數數</span>
                     </div>
                   `;
                 })
@@ -306,7 +504,7 @@
               <span class="tag">比例制</span>
             </div>
             <div class="leader-list">
-              ${ranked.map((player, index) => leaderRow(player, index)).join("")}
+              ${ranked.map((entry, index) => leaderRow(entry, index)).join("")}
             </div>
           </aside>
         </div>
@@ -315,7 +513,7 @@
   }
 
   function renderGm() {
-    const ranked = rankedPlayers();
+    const ranked = rankedUsers();
     return `
       <section class="scene observatory">
         <div class="scene-content two-col">
@@ -327,15 +525,15 @@
             <div class="gm-list">
               ${ranked
                 .map(
-                  (player, index) => `
+                  (user, index) => `
                     <div class="gm-row">
                       <span class="rank">${index + 1}</span>
                       <div>
-                        <strong>${player.name}</strong>
-                        <span class="leader-sub">${format(player.merit)} · ${Math.floor(progress(player.merit) * 100)}%</span>
+                        <strong>${escapeHtml(user.username)}</strong>
+                        <span class="leader-sub">${format(user.resources.merit)} · ${Math.floor(progress(user.resources.merit) * 100)}%</span>
                       </div>
-                      <input name="${player.id}" type="number" min="0" step="1000" placeholder="公德" />
-                      <button class="icon-button" type="button" data-action="grant" data-player="${player.id}">${icon("spark")}發放</button>
+                      <input name="${user.id}" type="number" min="0" step="1000" placeholder="公德" />
+                      <button class="icon-button" type="button" data-action="grant" data-user-id="${user.id}">${icon("spark")}發放</button>
                     </div>
                   `,
                 )
@@ -347,7 +545,7 @@
               <h2>發放規則</h2>
               <span class="tag">OP 控管</span>
             </div>
-            <p>GM 發放公德數數後，玩家角色會按照公德數數 / 550000 的比例在聖山路線上前進。</p>
+            <p>GM 發放公德數數後，玩家角色會按照公德數數 / 550000 的比例在聖山路線上前進。前端原型會即時保存到本機資料。</p>
             <div class="metric-grid">
               ${metric("merit", "550,000", "登頂門檻")}
               ${metric("health", "即時", "角色位置更新")}
@@ -363,14 +561,32 @@
     if (!trigger) return;
 
     const action = trigger.dataset.action;
+    if (action === "auth-mode") {
+      ui.authMode = trigger.dataset.mode || "login";
+      render();
+      return;
+    }
+
+    if (action === "logout") {
+      state.currentUserId = null;
+      ui.view = "oasis";
+      saveState();
+      render();
+      return;
+    }
+
     if (action === "view") {
-      state.view = trigger.dataset.view || "oasis";
+      ui.view = trigger.dataset.view || "oasis";
       render();
       return;
     }
 
     if (action === "tree") {
-      state.selectedTree = trigger.dataset.tree || "health";
+      const user = getCurrentUser();
+      if (!user || !trees[trigger.dataset.tree]) return;
+      user.selectedTree = trigger.dataset.tree;
+      user.updatedAt = new Date().toISOString();
+      saveState();
       render();
       return;
     }
@@ -390,41 +606,137 @@
     }
   }
 
+  function handleSubmit(event) {
+    const form = event.target.closest("[data-auth-form]");
+    if (!form) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    const mode = form.dataset.authForm;
+    const data = new FormData(form);
+    const username = String(data.get("username") || "").trim();
+    const password = String(data.get("password") || "");
+
+    if (!username || !password) {
+      showToast("請輸入玩家名稱與密碼。");
+      return;
+    }
+
+    if (mode === "login") {
+      const found = state.users.find((user) => normalizeName(user.username) === normalizeName(username));
+      if (!found || found.password !== password) {
+        showToast("帳號或密碼不正確。");
+        return;
+      }
+
+      state.currentUserId = found.id;
+      ui.view = "oasis";
+      saveState();
+      render();
+      showToast(`歡迎回來，${found.username}`);
+      return;
+    }
+
+    if (state.users.some((user) => normalizeName(user.username) === normalizeName(username))) {
+      showToast("這個玩家名稱已經被使用。");
+      return;
+    }
+
+    const oasisName = String(data.get("oasisName") || "").trim();
+    if (username.length < 2 || password.length < 4 || !oasisName) {
+      showToast("請確認名稱、密碼與綠洲名稱。");
+      return;
+    }
+
+    const user = createUser({
+      username,
+      password,
+      oasisName,
+      intention: String(data.get("intention") || "").trim(),
+      resources: { health: 1, wisdom: 1, wealth: 1, merit: 0 },
+      treeStages: { health: 1, wisdom: 1, wealth: 1 },
+    });
+    state.users.push(user);
+    state.currentUserId = user.id;
+    ui.view = "oasis";
+    saveState();
+    render();
+    showToast("綠洲建立完成，已送三種新手數數。");
+  }
+
   function feedTree() {
-    const key = state.selectedTree;
-    if (state.resources[key] <= 0) {
-      state.view = "tasks";
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const key = user.selectedTree;
+    if (user.treeStages[key] >= maxTreeStage) {
+      showToast(`${trees[key].name} 已經長成滿階。`);
+      return;
+    }
+
+    if (user.resources[key] <= 0) {
+      ui.view = "tasks";
       render();
       showToast(`需要 ${trees[key].fertilizer}`);
       return;
     }
-    state.resources[key] -= 1;
-    state.treeStages[key] = Math.min(5, state.treeStages[key] + 1);
+
+    user.resources[key] -= 1;
+    user.treeStages[key] += 1;
+    user.updatedAt = new Date().toISOString();
+    saveState();
     render();
     showToast(`${trees[key].name} 已吸收 ${trees[key].fertilizer}`);
   }
 
   function completeTask(key) {
-    if (state.completedTasks[key]) {
-      showToast("今日已領取");
+    const user = getCurrentUser();
+    if (!user || !trees[key]) return;
+
+    if (isTaskDoneToday(user, key)) {
+      showToast("今日已領取。");
       return;
     }
-    state.completedTasks[key] = true;
-    state.resources[key] += 1;
+
+    const now = new Date().toISOString();
+    const date = todayKey();
+    user.tasksByDate[date] = user.tasksByDate[date] || {};
+    user.tasksByDate[date][key] = {
+      completedAt: now,
+      reward: trees[key].fertilizer,
+    };
+    user.resources[key] += 1;
+    user.updatedAt = now;
+    user.taskLog.unshift({ key, completedAt: now });
+    user.taskLog = user.taskLog.slice(0, 30);
+    saveState();
     render();
     showToast(`獲得 ${trees[key].fertilizer}`);
   }
 
   function grantMerit(trigger) {
+    const gm = getCurrentUser();
+    if (!gm || gm.role !== "gm") {
+      showToast("只有 GM 可以發放公德數數。");
+      return;
+    }
+
     const row = trigger.closest(".gm-row");
     const input = row ? row.querySelector("input") : null;
-    const amount = Math.max(0, Number(input && input.value ? input.value : 10000));
-    const player = state.players.find((entry) => entry.id === trigger.dataset.player);
-    if (!player) return;
-    player.merit = Math.min(summitMerit, player.merit + amount);
-    if (player.id === "self") state.resources.merit = player.merit;
+    const amount = Math.max(0, toInt(input && input.value ? input.value : 10000, 10000));
+    const user = state.users.find((entry) => entry.id === trigger.dataset.userId);
+    if (!user || amount <= 0) {
+      showToast("請輸入有效公德數數。");
+      return;
+    }
+
+    user.resources.merit = clamp(user.resources.merit + amount, 0, summitMerit);
+    user.updatedAt = new Date().toISOString();
+    saveState();
     render();
-    showToast(`${player.name} +${format(amount)} 公德數數`);
+    showToast(`${user.username} +${format(amount)} 公德數數`);
   }
 
   function resource(key, value) {
@@ -479,14 +791,14 @@
     return `<span class="token ${key}">${letters[key]}</span>`;
   }
 
-  function leaderRow(player, index) {
-    const percent = Math.round(progress(player.merit) * 100);
+  function leaderRow(user, index) {
+    const percent = Math.round(progress(user.resources.merit) * 100);
     return `
       <div class="leader-row">
         <span class="rank">${index + 1}</span>
         <div>
-          <strong>${player.name}</strong>
-          <span class="leader-sub">${format(player.merit)} 公德數數</span>
+          <strong>${escapeHtml(user.username)}</strong>
+          <span class="leader-sub">${format(user.resources.merit)} 公德數數</span>
         </div>
         <div class="progress-track">
           <div class="progress-fill" style="--progress: ${percent}%"></div>
@@ -495,18 +807,34 @@
     `;
   }
 
-  function renderClimber(player) {
-    const point = routePoint(progress(player.merit));
+  function renderClimber(user) {
+    const point = routePoint(progress(user.resources.merit));
     return `
       <div class="climber" style="left:${point.x}%; top:${point.y}%">
-        ${character(player.color, "")}
-        <span class="climber-label">${player.name}</span>
+        ${character(user.color, "")}
+        <span class="climber-label">${escapeHtml(user.username)}</span>
       </div>
     `;
   }
 
-  function rankedPlayers() {
-    return state.players.slice().sort((a, b) => b.merit - a.merit);
+  function rankedUsers() {
+    return state.users.slice().sort((a, b) => b.resources.merit - a.resources.merit);
+  }
+
+  function getCurrentUser() {
+    return state.users.find((user) => user.id === state.currentUserId) || null;
+  }
+
+  function getTodayRecords(user) {
+    return user.tasksByDate[todayKey()] || {};
+  }
+
+  function isTaskDoneToday(user, key) {
+    return Boolean(getTodayRecords(user)[key]);
+  }
+
+  function completedCountToday(user) {
+    return Object.keys(getTodayRecords(user)).length;
   }
 
   function progress(merit) {
@@ -546,13 +874,19 @@
     return new Intl.NumberFormat("zh-Hant").format(value);
   }
 
+  function todayKey() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
   function showToast(message) {
     const toast = app.querySelector(".toast");
     if (!toast) return;
-    clearTimeout(toastTimer);
+    clearTimeout(ui.toastTimer);
     toast.textContent = message;
     toast.classList.add("is-visible");
-    toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2200);
+    ui.toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2200);
   }
 
   function treeArt(key, className, stage) {
@@ -631,5 +965,46 @@
       return `<svg ${common}><rect x="19" y="5" width="4" height="30" rx="2" fill="#8d5b31" transform="rotate(-32 21 20)"/><circle cx="16" cy="14" r="7" fill="#ffd6a0"/><path d="M10 31c5-9 17-9 22 0Z" fill="#3ead64"/></svg>`;
     }
     return `<svg ${common}><path d="M20 6c-8 8-3 14 0 18 5-6 7-11 0-18Z" fill="#ff8a4f"/><rect x="17" y="21" width="6" height="13" rx="3" fill="#8d5b31"/><path d="M12 27c-6-8-4-15 1-20M28 27c6-8 4-15-1-20" fill="none" stroke="#e6aa31" stroke-width="3" stroke-linecap="round"/></svg>`;
+  }
+
+  function makeId(prefix) {
+    const cryptoApi = window.crypto || window.msCrypto;
+    if (cryptoApi && cryptoApi.randomUUID) {
+      return `${prefix}-${cryptoApi.randomUUID()}`;
+    }
+    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function randomColor(seed) {
+    const colors = ["#ff8a4f", "#68c96b", "#e06db3", "#5eb2df", "#b681e8", "#e7aa31"];
+    const text = String(seed || "");
+    const sum = text.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
+    return colors[sum % colors.length];
+  }
+
+  function normalizeName(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function toInt(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function escapeHtml(value) {
+    return String(value || "").replace(/[&<>"']/g, (character) => {
+      const entities = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      };
+      return entities[character];
+    });
   }
 })();

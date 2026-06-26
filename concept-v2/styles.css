@@ -40,6 +40,13 @@ body {
   letter-spacing: 0;
 }
 
+body:has(.auth-scene) {
+  background:
+    linear-gradient(90deg, rgba(38, 30, 18, 0.34), rgba(38, 30, 18, 0.04) 46%, rgba(38, 30, 18, 0.3)),
+    url("../assets/concept-v2/oasis.png") center / cover fixed,
+    #8fdcf4;
+}
+
 button,
 input {
   font: inherit;
@@ -141,7 +148,7 @@ button {
 
 .nav {
   display: grid;
-  grid-template-columns: repeat(5, minmax(76px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
   gap: 7px;
   padding: 7px;
   border-radius: var(--radius);
@@ -184,6 +191,20 @@ button {
   justify-content: flex-end;
   padding: 9px;
   border-radius: var(--radius);
+}
+
+.logout-button {
+  min-height: 50px;
+  padding: 0 12px;
+  border: 1px solid rgba(135, 93, 43, 0.24);
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 24% 8%, rgba(255, 255, 255, 0.72), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 247, 0.88), rgba(239, 209, 145, 0.78));
+  box-shadow: 0 9px 18px rgba(83, 55, 24, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: #5f3e1d;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .resource {
@@ -232,6 +253,118 @@ button {
 
 .stage {
   min-height: calc(100vh - 114px);
+}
+
+.auth-scene {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  gap: clamp(18px, 4vw, 44px);
+  width: min(1180px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: clamp(22px, 5vw, 58px) 0;
+  align-items: center;
+}
+
+.auth-copy {
+  min-height: 560px;
+  display: grid;
+  align-content: space-between;
+  padding: clamp(24px, 4vw, 42px);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.58), transparent 26%),
+    linear-gradient(180deg, rgba(255, 250, 231, 0.2), rgba(255, 231, 184, 0.12));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  color: #fffdf2;
+  text-shadow: 0 2px 18px rgba(48, 34, 16, 0.32);
+}
+
+.auth-copy h1 {
+  margin: 18px 0 12px;
+  font-size: clamp(3.2rem, 9vw, 7.4rem);
+  line-height: 0.9;
+}
+
+.auth-copy p {
+  max-width: 36rem;
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+
+.eyebrow {
+  color: #fff3b2;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+}
+
+.auth-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 18% 6%, rgba(255, 255, 255, 0.74), transparent 36%),
+    linear-gradient(180deg, rgba(255, 253, 241, 0.94), rgba(255, 236, 197, 0.9));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.auth-tab {
+  min-height: 46px;
+  border: 1px solid rgba(135, 93, 43, 0.24);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 22% 12%, rgba(255, 255, 255, 0.76), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 247, 0.88), rgba(239, 209, 145, 0.78));
+  color: #5f3e1d;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.auth-tab.is-active {
+  border-color: rgba(183, 112, 29, 0.5);
+  background:
+    radial-gradient(circle at 22% 12%, rgba(255, 255, 255, 0.82), transparent 32%),
+    linear-gradient(180deg, #fff3ad, #eeb044);
+}
+
+.auth-form {
+  display: grid;
+  gap: 13px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid rgba(178, 124, 55, 0.34);
+  border-radius: 16px;
+  background: rgba(255, 253, 243, 0.88);
+  color: var(--ink);
+  box-shadow: inset 0 2px 8px rgba(93, 58, 32, 0.06);
+}
+
+.auth-hint {
+  margin: 14px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .scene {
@@ -689,6 +822,7 @@ button {
 
 @media (max-width: 1180px) {
   .hud,
+  .auth-scene,
   .scene-content,
   .scene-content.two-col {
     grid-template-columns: 1fr;
@@ -705,6 +839,10 @@ button {
 
   .scene {
     min-height: 980px;
+  }
+
+  .auth-copy {
+    min-height: 420px;
   }
 
   .hero-tree-area {
@@ -724,6 +862,21 @@ button {
 
   .hud {
     top: 8px;
+  }
+
+  .auth-scene {
+    width: min(100% - 18px, 1180px);
+    padding: 10px 0;
+  }
+
+  .auth-copy,
+  .auth-card {
+    border-radius: 24px;
+  }
+
+  .auth-copy {
+    min-height: 330px;
+    padding: 22px;
   }
 
   .nav-button {

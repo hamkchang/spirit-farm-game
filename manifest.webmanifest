@@ -1,11 +1,11 @@
 {
-  "name": "心田農場",
-  "short_name": "心田農場",
-  "description": "以任務肥料養成樹木的農場遊戲原型。",
+  "name": "綠洲聖山",
+  "short_name": "綠洲聖山",
+  "description": "以每日任務取得數數、培育三棵樹並攀登聖山的精緻遊戲原型。",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f1f6f5",
-  "theme_color": "#2f6f57",
+  "theme_color": "#5dbf72",
   "icons": [
     {
       "src": "./assets/icon.svg",

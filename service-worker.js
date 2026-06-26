@@ -1,11 +1,15 @@
-const CACHE_NAME = "spirit-farm-game-v1";
+const CACHE_NAME = "spirit-farm-game-v4";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
+  "./concept-v2/styles.css",
+  "./concept-v2/app.js",
   "./manifest.webmanifest",
   "./assets/icon.svg",
+  "./assets/concept-v2/oasis.png",
+  "./assets/concept-v2/tasks.png",
+  "./assets/concept-v2/mountain.png",
+  "./assets/concept-v2/observatory.png",
 ];
 
 self.addEventListener("install", (event) => {

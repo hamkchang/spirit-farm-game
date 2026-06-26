@@ -1,10 +1,12 @@
 # 心田農場
 
-一個純 HTML/CSS/JavaScript 的農場遊戲原型。玩家可以註冊、種五種樹、完成每日任務取得肥料，並在世界頁看到其他玩家的農場狀態。
+一個純 HTML/CSS/JavaScript 的精緻風農場與聖山遊戲原型。玩家可以註冊、培育健康樹樹 / 智慧樹樹 / 財富樹樹，完成每日任務取得對應數數，並透過公德數數在聖山排行中前進。
 
 ## 線上網址
 
 https://hamkchang.github.io/spirit-farm-game/
+
+正式首頁已套用 AL 精緻版全站介面。
 
 ## 新畫面原型
 
@@ -61,9 +63,10 @@ API key 必須存在 `.env` 或雲端平台 Secrets，不能放進前端 HTML/JS
 
 ## 原型範圍
 
-- 帳號、農場、任務與社群狀態目前存在瀏覽器 `localStorage`。
-- 內建範例帳號：`yuna / demo`、`kai / demo`。
-- 新玩家註冊後會得到 1 份新手肥料。
+- 帳號、綠洲、任務、排行榜與 GM 發放紀錄目前存在瀏覽器 `localStorage`。
+- 內建範例帳號：`yuna / demo`、`kai / demo`、`mei / demo`。
+- GM 後台範例帳號：`gm / demo`。
+- 新玩家註冊後會得到三種新手數數。
 - 任務每天依本機日期重置。
 
 ## 轉成 iOS / Android 的方向
