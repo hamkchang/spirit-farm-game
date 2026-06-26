@@ -10,6 +10,10 @@ https://hamkchang.github.io/spirit-farm-game/
 
 https://hamkchang.github.io/spirit-farm-game/concept/
 
+## AL 精緻版畫面
+
+https://hamkchang.github.io/spirit-farm-game/concept-v2/
+
 ## 開啟方式
 
 直接開啟 `index.html` 即可遊玩。

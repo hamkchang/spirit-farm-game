@@ -5,7 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server/dev-server.js",
-    "check": "node --check app.js && node --check concept/app.js && node --check server/ai-core.js && node --check server/dev-server.js && node --check api/ai/agents.js && node --check api/ai/chat.js"
+    "check": "node --check app.js && node --check concept/app.js && node --check concept-v2/app.js && node --check server/ai-core.js && node --check server/dev-server.js && node --check api/ai/agents.js && node --check api/ai/chat.js"
   },
   "engines": {
     "node": ">=18"

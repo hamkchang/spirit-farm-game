@@ -57,6 +57,7 @@ function serveStatic(req, res) {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
     ".svg": "image/svg+xml",
     ".webmanifest": "application/manifest+json; charset=utf-8",
   }[ext] || "application/octet-stream";
