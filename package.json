@@ -1,0 +1,13 @@
+{
+  "name": "spirit-farm-game",
+  "version": "0.2.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/dev-server.js",
+    "check": "node --check app.js && node --check concept/app.js && node --check server/ai-core.js && node --check server/dev-server.js && node --check api/ai/agents.js && node --check api/ai/chat.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
