@@ -1530,6 +1530,34 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .oasis-summary-panel .metric {
+    min-height: 74px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    align-content: center;
+    text-align: center;
+  }
+
+  .oasis-summary-panel .metric .muted {
+    display: none;
+  }
+
+  .oasis-summary-panel .metric strong {
+    font-size: 1.02rem;
+    line-height: 1.05;
+  }
+
+  .oasis-summary-panel .metric .tree-icon-img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .oasis-summary-panel .metric .token {
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+  }
+
   .metric {
     min-height: 46px;
     grid-template-columns: 34px minmax(0, 1fr);
