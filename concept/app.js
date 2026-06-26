@@ -116,7 +116,7 @@
           <span class="brand-badge">${iconOasis()}</span>
           <div>
             <strong>綠洲聖山</strong>
-            <span>畫面原型</span>
+            <span>精緻畫面原型</span>
           </div>
         </div>
         <nav class="nav" aria-label="畫面">
