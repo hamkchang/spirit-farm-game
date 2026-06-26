@@ -1,4 +1,4 @@
-const CACHE_NAME = "spirit-farm-game-v7";
+const CACHE_NAME = "spirit-farm-game-v8";
 const ASSETS = [
   "./",
   "./index.html",

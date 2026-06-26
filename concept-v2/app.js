@@ -376,11 +376,262 @@
   }
 
   function renderView(user) {
-    if (ui.view === "tasks") return renderTasks(user);
-    if (ui.view === "mountain") return renderMountain(user);
-    if (ui.view === "leaderboard") return renderLeaderboard();
-    if (ui.view === "gm") return renderGm();
-    return renderOasis(user);
+    return renderGameBoard(user);
+  }
+
+  function renderGameBoard(user) {
+    const selectedPlot = getSelectedPlot(user);
+    const selectedTree = selectedPlot && selectedPlot.treeKey ? trees[selectedPlot.treeKey] : trees[user.selectedTree];
+    const actionLabel = selectedPlot && selectedPlot.treeKey
+      ? selectedPlot.stage >= maxTreeStage
+        ? "已滿階"
+        : "施肥成長"
+      : `種下${trees[user.selectedTree].name}`;
+    const ranked = rankedUsers();
+    return `
+      <section class="scene game-board view-${ui.view}">
+        <div class="game-map ${ui.view === "mountain" ? "map-mountain" : "map-oasis"}">
+          ${ui.view === "mountain" ? renderMountainWorld(ranked) : renderFarmWorld(user)}
+        </div>
+
+        <aside class="floating-panel farm-ledger">
+          <div class="panel-head">
+            <h2>${ui.view === "mountain" ? "聖山入口" : "農場看板"}</h2>
+            <span class="tag">${plantedCount(user)} / ${plotCount}</span>
+          </div>
+          <div class="ledger-grid">
+            ${ledgerTile("health", treeCount(user, "health"), "健康樹")}
+            ${ledgerTile("wisdom", treeCount(user, "wisdom"), "智慧樹")}
+            ${ledgerTile("wealth", treeCount(user, "wealth"), "財富樹")}
+            ${ledgerTile("merit", compact(user.resources.merit), "公德")}
+          </div>
+          <p>${escapeHtml(user.intention || "完成任務、取得數數、種下對應樹木，讓綠洲逐步長成自己的農場。")}</p>
+        </aside>
+
+        <aside class="floating-panel action-board">
+          ${
+            ui.view === "oasis"
+              ? renderFarmActionPanel(user, selectedPlot, selectedTree, actionLabel)
+              : renderFeaturePanel(user, ranked)
+          }
+        </aside>
+
+        ${renderActionRail(user)}
+        ${ui.view === "oasis" ? renderTreeDock(user) : ""}
+        ${ui.view !== "oasis" ? renderDrawer(user, ranked) : ""}
+      </section>
+    `;
+  }
+
+  function renderFarmWorld(user) {
+    return `
+      <section class="farm-field game-farm-field" aria-label="綠洲農場土地">
+        <div class="plot-layer">
+          ${user.plots.map((plot, index) => renderFarmPlot(user, plot, index)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderMountainWorld(ranked) {
+    return `
+      <section class="mountain-overlay game-mountain-path" aria-label="聖山登山路線">
+        ${ranked.map(renderClimber).join("")}
+      </section>
+    `;
+  }
+
+  function renderFarmActionPanel(user, selectedPlot, selectedTree, actionLabel) {
+    return `
+      <div class="panel-head">
+        <h2>${selectedPlot && selectedPlot.treeKey ? selectedTree.name : "選擇土地"}</h2>
+        <span class="tag">${selectedPlot && selectedPlot.treeKey ? `Lv.${selectedPlot.stage}` : "空地"}</span>
+      </div>
+      <div class="focus-tree">
+        <img src="${treeAsset(selectedTree.key)}" alt="${selectedTree.name}" />
+        <div>
+          <strong>${selectedTree.fertilizer}</strong>
+          <span>${user.resources[selectedTree.key]} 可用</span>
+        </div>
+      </div>
+      <p>${selectedPlot && selectedPlot.treeKey ? selectedTree.al : `先選樹種，再點空地種下。${selectedTree.task} 會產出 ${selectedTree.fertilizer}。`}</p>
+      <div class="action-stack">
+        <button class="action-button" type="button" data-action="feed">${icon("spark")}${actionLabel}</button>
+        <button class="action-button secondary" type="button" data-action="view" data-view="tasks">${icon("scroll")}去做任務</button>
+      </div>
+    `;
+  }
+
+  function renderFeaturePanel(user, ranked) {
+    if (ui.view === "tasks") {
+      return `
+        <div class="panel-head">
+          <h2>今日訂單板</h2>
+          <span class="tag">${completedCountToday(user)} / 3</span>
+        </div>
+        <p>完成每日任務取得數數。數數只能餵對應的樹，這是整個養成循環的入口。</p>
+        <div class="mini-list">
+          ${tasks.map((task) => miniTaskRow(user, task)).join("")}
+        </div>
+      `;
+    }
+
+    if (ui.view === "mountain") {
+      return `
+        <div class="panel-head">
+          <h2>聖山進度</h2>
+          <span class="tag">55萬登頂</span>
+        </div>
+        <div class="leader-list compact">
+          ${ranked.slice(0, 3).map((entry, index) => leaderRow(entry, index)).join("")}
+        </div>
+      `;
+    }
+
+    if (ui.view === "leaderboard") {
+      return `
+        <div class="panel-head">
+          <h2>登頂排行</h2>
+          <span class="tag">全玩家</span>
+        </div>
+        <div class="leader-list compact">
+          ${ranked.slice(0, 5).map((entry, index) => leaderRow(entry, index)).join("")}
+        </div>
+      `;
+    }
+
+    return `
+      <div class="panel-head">
+        <h2>GM 控制台</h2>
+        <span class="tag">公德發放</span>
+      </div>
+      <p>選擇玩家輸入公德數數，角色會依比例往聖山山頂前進。</p>
+      <div class="mini-list">
+        ${ranked.slice(0, 3).map((entry, index) => `<span>${index + 1}. ${escapeHtml(entry.username)} · ${format(entry.resources.merit)}</span>`).join("")}
+      </div>
+    `;
+  }
+
+  function renderDrawer(user, ranked) {
+    const title = {
+      tasks: "每日任務",
+      mountain: "聖山地圖",
+      leaderboard: "排行榜",
+      gm: "GM 後台",
+    }[ui.view] || "功能";
+
+    return `
+      <section class="game-drawer drawer-${ui.view}">
+        <div class="drawer-head">
+          <h2>${title}</h2>
+          <button class="icon-button secondary" type="button" data-action="view" data-view="oasis">${icon("leaf")}回農場</button>
+        </div>
+        ${renderDrawerContent(user, ranked)}
+      </section>
+    `;
+  }
+
+  function renderDrawerContent(user, ranked) {
+    if (ui.view === "tasks") {
+      return `
+        <div class="task-grid game-task-grid">
+          ${tasks.map((task) => renderTaskCard(user, task)).join("")}
+        </div>
+      `;
+    }
+
+    if (ui.view === "mountain") {
+      return `
+        <div class="mountain-brief">
+          ${metric("merit", compact(user.resources.merit), "我的公德數數")}
+          ${metric("wisdom", `${Math.floor(progress(user.resources.merit) * 100)}%`, "目前山路比例")}
+        </div>
+      `;
+    }
+
+    if (ui.view === "leaderboard") {
+      return `
+        <div class="leader-list game-leader-list">
+          ${ranked.map((entry, index) => leaderRow(entry, index)).join("")}
+        </div>
+      `;
+    }
+
+    return `
+      <div class="gm-list game-gm-list">
+        ${ranked
+          .map(
+            (entry, index) => `
+              <div class="gm-row">
+                <span class="rank">${index + 1}</span>
+                <div>
+                  <strong>${escapeHtml(entry.username)}</strong>
+                  <span class="leader-sub">${format(entry.resources.merit)} · ${Math.floor(progress(entry.resources.merit) * 100)}%</span>
+                </div>
+                <input name="${entry.id}" type="number" min="0" step="1000" placeholder="公德" />
+                <button class="icon-button" type="button" data-action="grant" data-user-id="${entry.id}">${icon("spark")}發放</button>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderActionRail(user) {
+    const nav = [
+      ["oasis", "農場", icon("leaf")],
+      ["tasks", "任務", icon("scroll")],
+      ["mountain", "聖山", icon("mountain")],
+      ["leaderboard", "排行", icon("rank")],
+    ];
+    if (user.role === "gm") nav.push(["gm", "GM", icon("star")]);
+    return `
+      <nav class="action-rail" aria-label="遊戲入口">
+        ${nav
+          .map(
+            ([key, label, svg]) => `
+              <button class="rail-button ${ui.view === key ? "is-active" : ""}" type="button" data-action="view" data-view="${key}">
+                ${svg}
+                <span>${label}</span>
+              </button>
+            `,
+          )
+          .join("")}
+      </nav>
+    `;
+  }
+
+  function renderTreeDock(user) {
+    return `
+      <div class="tree-dock">
+        ${Object.values(trees).map((entry) => renderTreeOption(user, entry)).join("")}
+      </div>
+    `;
+  }
+
+  function ledgerTile(key, value, label) {
+    const visual = key === "merit"
+      ? token(key)
+      : `<img class="tree-icon tree-icon-img" src="${treeAsset(key)}" alt="${trees[key].name}" />`;
+    return `
+      <div class="ledger-tile ${key}">
+        ${visual}
+        <strong>${value}</strong>
+        <span>${label}</span>
+      </div>
+    `;
+  }
+
+  function miniTaskRow(user, task) {
+    const done = isTaskDoneToday(user, task.key);
+    return `
+      <span class="mini-row ${done ? "is-done" : ""}">
+        <span>${taskGlyph(task.key)}</span>
+        <strong>${task.title}</strong>
+        <em>${done ? "完成" : task.reward}</em>
+      </span>
+    `;
   }
 
   function renderOasis(user) {
