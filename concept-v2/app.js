@@ -4,6 +4,7 @@
   const STORAGE_KEY = "spirit-farm-al.v2";
   const summitMerit = 550000;
   const maxTreeStage = 5;
+  const plotCount = 12;
   const app = document.getElementById("alApp");
 
   const trees = {
@@ -60,6 +61,7 @@
   const ui = {
     authMode: "login",
     view: "oasis",
+    selectedPlotId: "plot-1",
     toastTimer: null,
   };
 
@@ -111,12 +113,45 @@
       intention: String(user.intention || ""),
       color: user.color || randomColor(user.username || "farmer"),
       selectedTree: trees[user.selectedTree] ? user.selectedTree : "health",
+      selectedPlotId: user.selectedPlotId || "plot-1",
       createdAt: user.createdAt || now,
       updatedAt: user.updatedAt || now,
       resources: normalizeResources(user.resources),
       treeStages: normalizeTreeStages(user.treeStages),
+      plots: normalizePlots(user.plots, user.treeStages),
       tasksByDate: user.tasksByDate && typeof user.tasksByDate === "object" ? user.tasksByDate : {},
       taskLog: Array.isArray(user.taskLog) ? user.taskLog.slice(0, 30) : [],
+    };
+  }
+
+  function normalizePlots(plots, fallbackStages) {
+    const safePlots = Array.isArray(plots) ? plots.slice(0, plotCount) : [];
+    const normalized = safePlots.map((plot, index) => normalizePlot(plot, index));
+
+    if (!normalized.length) {
+      const stages = normalizeTreeStages(fallbackStages);
+      normalized.push(
+        normalizePlot({ id: "plot-1", treeKey: "health", stage: stages.health }, 0),
+        normalizePlot({ id: "plot-2", treeKey: "wisdom", stage: stages.wisdom }, 1),
+        normalizePlot({ id: "plot-3", treeKey: "wealth", stage: stages.wealth }, 2),
+      );
+    }
+
+    while (normalized.length < plotCount) {
+      normalized.push(normalizePlot({}, normalized.length));
+    }
+    return normalized;
+  }
+
+  function normalizePlot(plot, index) {
+    const safe = plot && typeof plot === "object" ? plot : {};
+    const treeKey = trees[safe.treeKey] ? safe.treeKey : trees[safe.treeId] ? safe.treeId : null;
+    return {
+      id: safe.id || `plot-${index + 1}`,
+      treeKey,
+      stage: treeKey ? clamp(toInt(safe.stage, 1), 1, maxTreeStage) : 0,
+      plantedAt: safe.plantedAt || null,
+      updatedAt: safe.updatedAt || null,
     };
   }
 
@@ -199,6 +234,7 @@
       selectedTree: input.selectedTree || "health",
       resources: input.resources || { health: 1, wisdom: 1, wealth: 1, merit: 0 },
       treeStages: input.treeStages || { health: 1, wisdom: 1, wealth: 1 },
+      plots: input.plots,
       color: input.color || randomColor(input.username),
       createdAt: now,
       updatedAt: now,
@@ -348,24 +384,34 @@
   }
 
   function renderOasis(user) {
-    const tree = trees[user.selectedTree];
+    const selectedPlot = getSelectedPlot(user);
+    const selectedTree = selectedPlot && selectedPlot.treeKey ? trees[selectedPlot.treeKey] : trees[user.selectedTree];
+    const actionLabel = selectedPlot && selectedPlot.treeKey
+      ? selectedPlot.stage >= maxTreeStage
+        ? "已滿階"
+        : "對應施肥"
+      : `種下${trees[user.selectedTree].name}`;
     return `
       <section class="scene oasis">
         <div class="scene-content">
           <aside class="panel">
             <div class="panel-head">
-              <h2>AL 架構</h2>
-              <span class="tag">正式 UI</span>
+              <h2>綠洲總覽</h2>
+              <span class="tag">${plantedCount(user)} / ${plotCount}</span>
             </div>
-            <div class="agent-row">
-              ${agentChip("OP", "流程控制", "任務、施肥、GM 權限與資料保存")}
-              ${agentChip("GE", "平衡校正", "三種數數與三種樹不可混用")}
-              ${agentChip("GPT5.5", "敘事美術", "全站維持精緻綠洲與聖山風格")}
+            <div class="metric-grid">
+              ${metric("health", treeCount(user, "health"), "健康樹樹")}
+              ${metric("wisdom", treeCount(user, "wisdom"), "智慧樹樹")}
+              ${metric("wealth", treeCount(user, "wealth"), "財富樹樹")}
+              ${metric("merit", compact(user.resources.merit), "公德數數")}
             </div>
+            <p>${escapeHtml(user.intention || "在綠洲中種下多棵樹，完成每日任務取得對應數數，讓每一棵樹慢慢成長。")}</p>
           </aside>
 
-          <section class="hero-tree-area" aria-label="綠洲種樹主畫面">
-            ${treeArt(tree.key, "hero-tree", Math.max(4, user.treeStages[tree.key]))}
+          <section class="farm-field" aria-label="綠洲農場土地">
+            <div class="plot-layer">
+              ${user.plots.map((plot, index) => renderFarmPlot(user, plot, index)).join("")}
+            </div>
             <div class="tree-selector">
               ${Object.values(trees).map((entry) => renderTreeOption(user, entry)).join("")}
             </div>
@@ -373,17 +419,17 @@
 
           <aside class="panel">
             <div class="panel-head">
-              <h2>${tree.name}</h2>
-              <span class="tag">第 ${user.treeStages[tree.key]} 階</span>
+              <h2>${selectedPlot && selectedPlot.treeKey ? selectedTree.name : "選擇空地"}</h2>
+              <span class="tag">${selectedPlot && selectedPlot.treeKey ? `第 ${selectedPlot.stage} 階` : "可種植"}</span>
             </div>
             <div class="metric-grid">
-              ${metric(tree.key, user.resources[tree.key], tree.fertilizer)}
+              ${metric(selectedTree.key, user.resources[selectedTree.key], selectedTree.fertilizer)}
               ${metric("merit", compact(user.resources.merit), "公德數數")}
               ${metric("wisdom", `${completedCountToday(user)} / 3`, "今日任務")}
             </div>
-            <p>${escapeHtml(user.intention || tree.al)}</p>
+            <p>${selectedPlot && selectedPlot.treeKey ? selectedTree.al : `目前選取 ${trees[user.selectedTree].name}。點選空地後可用 ${trees[user.selectedTree].fertilizer} 種下。`}</p>
             <div class="action-stack">
-              <button class="action-button" type="button" data-action="feed">${icon("spark")}對應施肥</button>
+              <button class="action-button" type="button" data-action="feed">${icon("spark")}${actionLabel}</button>
               <button class="action-button secondary" type="button" data-action="view" data-view="tasks">${icon("scroll")}取得肥料</button>
             </div>
           </aside>
@@ -392,10 +438,28 @@
     `;
   }
 
+  function renderFarmPlot(user, plot, index) {
+    const selected = getSelectedPlot(user);
+    const positionClass = `plot-pos-${index + 1}`;
+    const isSelected = selected && selected.id === plot.id;
+    const tree = plot.treeKey ? trees[plot.treeKey] : trees[user.selectedTree];
+    return `
+      <button class="farm-plot ${positionClass} ${isSelected ? "is-selected" : ""} ${plot.treeKey ? "is-planted" : "is-empty"}" type="button" data-action="plot" data-plot-id="${plot.id}" aria-label="${plot.treeKey ? tree.name : "空地"}">
+        <span class="plot-base"></span>
+        ${
+          plot.treeKey
+            ? `<img class="plot-tree stage-${plot.stage}" src="${treeAsset(plot.treeKey)}" alt="${tree.name}" />`
+            : `<span class="plot-empty-icon">${icon("leaf")}</span>`
+        }
+        <span class="plot-badge">${plot.treeKey ? `Lv.${plot.stage}` : "空地"}</span>
+      </button>
+    `;
+  }
+
   function renderTreeOption(user, tree) {
     return `
       <button class="tree-option ${user.selectedTree === tree.key ? "is-active" : ""}" type="button" data-action="tree" data-tree="${tree.key}">
-        ${treeArt(tree.key, "tree-icon", 2)}
+        <img class="tree-icon tree-icon-img" src="${treeAsset(tree.key)}" alt="${tree.name}" />
         <span>
           <strong>${tree.name}</strong>
           <span>${tree.task} 產出 ${tree.fertilizer}</span>
@@ -591,8 +655,13 @@
       return;
     }
 
+    if (action === "plot") {
+      selectPlot(trigger.dataset.plotId);
+      return;
+    }
+
     if (action === "feed") {
-      feedTree();
+      handlePlotAction();
       return;
     }
 
@@ -666,13 +735,62 @@
     showToast("綠洲建立完成，已送三種新手數數。");
   }
 
-  function feedTree() {
+  function selectPlot(plotId) {
+    const user = getCurrentUser();
+    if (!user) return;
+    const plot = getPlot(user, plotId);
+    if (!plot) return;
+
+    user.selectedPlotId = plot.id;
+    ui.selectedPlotId = plot.id;
+    user.updatedAt = new Date().toISOString();
+    saveState();
+    render();
+  }
+
+  function handlePlotAction() {
     const user = getCurrentUser();
     if (!user) return;
 
+    const plot = getSelectedPlot(user);
+    if (!plot) {
+      showToast("請先選擇一塊土地。");
+      return;
+    }
+
+    if (!plot.treeKey) {
+      plantSelectedTree(user, plot);
+      return;
+    }
+
+    upgradePlotTree(user, plot);
+  }
+
+  function plantSelectedTree(user, plot) {
     const key = user.selectedTree;
-    if (user.treeStages[key] >= maxTreeStage) {
-      showToast(`${trees[key].name} 已經長成滿階。`);
+    if (user.resources[key] <= 0) {
+      ui.view = "tasks";
+      render();
+      showToast(`種下 ${trees[key].name} 需要 ${trees[key].fertilizer}`);
+      return;
+    }
+
+    user.resources[key] -= 1;
+    plot.treeKey = key;
+    plot.stage = 1;
+    plot.plantedAt = new Date().toISOString();
+    plot.updatedAt = plot.plantedAt;
+    user.updatedAt = plot.plantedAt;
+    syncTreeStages(user);
+    saveState();
+    render();
+    showToast(`${trees[key].name} 已種下。`);
+  }
+
+  function upgradePlotTree(user, plot) {
+    const key = plot.treeKey;
+    if (plot.stage >= maxTreeStage) {
+      showToast(`${trees[key].name} 已經滿階。`);
       return;
     }
 
@@ -684,11 +802,13 @@
     }
 
     user.resources[key] -= 1;
-    user.treeStages[key] += 1;
-    user.updatedAt = new Date().toISOString();
+    plot.stage += 1;
+    plot.updatedAt = new Date().toISOString();
+    user.updatedAt = plot.updatedAt;
+    syncTreeStages(user);
     saveState();
     render();
-    showToast(`${trees[key].name} 已吸收 ${trees[key].fertilizer}`);
+    showToast(`${trees[key].name} 升到第 ${plot.stage} 階。`);
   }
 
   function completeTask(key) {
@@ -758,25 +878,16 @@
   }
 
   function metric(key, value, label) {
+    const visual = key === "merit"
+      ? token(key)
+      : `<img class="tree-icon tree-icon-img" src="${treeAsset(key)}" alt="${trees[key] ? trees[key].name : label}" />`;
     return `
       <div class="metric">
-        ${key === "merit" ? token(key) : treeArt(key, "tree-icon", 2)}
+        ${visual}
         <div>
           <strong>${value}</strong>
           <span class="muted">${label}</span>
         </div>
-      </div>
-    `;
-  }
-
-  function agentChip(id, role, text) {
-    return `
-      <div class="agent-chip">
-        <span class="agent-badge">${id === "GPT5.5" ? "GPT" : id}</span>
-        <span>
-          <strong>${id} · ${role}</strong>
-          <span>${text}</span>
-        </span>
       </div>
     `;
   }
@@ -823,6 +934,32 @@
 
   function getCurrentUser() {
     return state.users.find((user) => user.id === state.currentUserId) || null;
+  }
+
+  function getPlot(user, plotId) {
+    if (!user || !Array.isArray(user.plots)) return null;
+    return user.plots.find((plot) => plot.id === plotId) || null;
+  }
+
+  function getSelectedPlot(user) {
+    if (!user) return null;
+    const selectedId = user.selectedPlotId || ui.selectedPlotId;
+    return getPlot(user, selectedId) || (Array.isArray(user.plots) ? user.plots[0] : null);
+  }
+
+  function plantedCount(user) {
+    return user.plots.filter((plot) => plot.treeKey).length;
+  }
+
+  function treeCount(user, key) {
+    return user.plots.filter((plot) => plot.treeKey === key).length;
+  }
+
+  function syncTreeStages(user) {
+    Object.keys(trees).forEach((key) => {
+      const stages = user.plots.filter((plot) => plot.treeKey === key).map((plot) => plot.stage || 1);
+      user.treeStages[key] = stages.length ? Math.max(...stages) : 1;
+    });
   }
 
   function getTodayRecords(user) {
@@ -889,29 +1026,6 @@
     ui.toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2200);
   }
 
-  function treeArt(key, className, stage) {
-    const tree = trees[key] || trees.health;
-    const size = Math.max(1, Math.min(5, stage || 1));
-    const canopy = 22 + size * 7;
-    const trunkHeight = 36 + size * 8;
-    const y = 128 - trunkHeight;
-    return `
-      <svg class="${className}" viewBox="0 0 170 170" role="img" aria-label="${tree.name}">
-        <ellipse cx="85" cy="146" rx="54" ry="16" fill="#5e4327" opacity=".23"></ellipse>
-        <rect x="74" y="${y}" width="22" height="${trunkHeight}" rx="11" fill="#8d5b31"></rect>
-        <path d="M85 ${y + 21} C61 ${y + 5} 48 ${y - 16} 39 ${y - 35}" fill="none" stroke="#8d5b31" stroke-width="9" stroke-linecap="round"></path>
-        <path d="M89 ${y + 18} C108 ${y + 3} 123 ${y - 18} 133 ${y - 38}" fill="none" stroke="#8d5b31" stroke-width="9" stroke-linecap="round"></path>
-        <circle cx="85" cy="${y - 26}" r="${canopy}" fill="${tree.color}"></circle>
-        <circle cx="${85 - canopy * 0.8}" cy="${y - 12}" r="${canopy * 0.72}" fill="${tree.color}" opacity=".94"></circle>
-        <circle cx="${85 + canopy * 0.78}" cy="${y - 15}" r="${canopy * 0.7}" fill="${tree.color}" opacity=".92"></circle>
-        <circle cx="${85 - canopy * 0.15}" cy="${y - 58}" r="${canopy * 0.58}" fill="${tree.color}" opacity=".98"></circle>
-        <circle cx="${85 + canopy * 0.34}" cy="${y - 38}" r="${Math.max(8, canopy * 0.2)}" fill="${tree.light}"></circle>
-        <circle cx="${85 - canopy * 0.46}" cy="${y - 32}" r="${Math.max(7, canopy * 0.16)}" fill="${tree.light}" opacity=".92"></circle>
-        <circle cx="${85 + canopy * 0.04}" cy="${y - 62}" r="${Math.max(6, canopy * 0.13)}" fill="#fff6c9" opacity=".78"></circle>
-      </svg>
-    `;
-  }
-
   function character(color, className) {
     return `
       <svg class="${className}" viewBox="0 0 86 108" role="img" aria-label="玩家角色">
@@ -930,6 +1044,15 @@
     if (key === "wisdom") return icon("meditation");
     if (key === "health") return icon("staff");
     return icon("incense");
+  }
+
+  function treeAsset(key) {
+    const script = document.querySelector ? document.querySelector('script[src*="concept-v2/app.js"]') : null;
+    if (script && script.src) {
+      return new URL(`../assets/concept-v2/trees/${key}.png`, script.src).toString();
+    }
+    const prefix = window.location.pathname.includes("/concept-v2/") ? "../" : "./";
+    return `${prefix}assets/concept-v2/trees/${key}.png`;
   }
 
   function icon(type) {

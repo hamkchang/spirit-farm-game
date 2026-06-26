@@ -509,7 +509,7 @@ button {
 
 .metric {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 52px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   min-height: 64px;
@@ -524,24 +524,249 @@ button {
   font-size: 1.18rem;
 }
 
-.hero-tree-area {
+.farm-field {
   position: relative;
   min-height: 100%;
+  isolation: isolate;
 }
 
-.hero-tree {
+.farm-field::before {
+  content: "";
   position: absolute;
   left: 50%;
-  top: 47%;
-  width: min(330px, 42vw);
-  transform: translate(-50%, -62%);
-  filter: drop-shadow(0 26px 26px rgba(58, 45, 22, 0.28));
+  top: 50%;
+  z-index: 0;
+  width: min(600px, 82%);
+  height: min(460px, 68%);
+  transform: translate(-50%, -47%);
+  border-radius: 48%;
+  background:
+    radial-gradient(ellipse at 50% 47%, rgba(255, 248, 191, 0.22), transparent 58%),
+    radial-gradient(ellipse at 50% 62%, rgba(76, 133, 51, 0.24), transparent 68%);
+  pointer-events: none;
+}
+
+.plot-layer {
+  position: absolute;
+  inset: 4px 0 132px;
+  z-index: 1;
+}
+
+.farm-plot {
+  --plot-scale: 1;
+  position: absolute;
+  z-index: 2;
+  width: clamp(82px, 8.4vw, 132px);
+  aspect-ratio: 1 / 1.18;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 18px 18px rgba(58, 44, 22, 0.2));
+}
+
+.farm-plot::before {
+  content: "";
+  position: absolute;
+  inset: 21% 14% 13%;
+  z-index: 0;
+  border: 2px solid rgba(255, 242, 171, 0.64);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 36%, rgba(255, 253, 214, 0.7), rgba(214, 164, 80, 0.2) 42%, rgba(124, 91, 40, 0.08) 66%, transparent 68%);
+  opacity: 0;
+  transform: scale(0.86);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.farm-plot:hover::before,
+.farm-plot.is-selected::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.farm-plot.is-selected {
+  z-index: 8;
+}
+
+.plot-base {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  z-index: 1;
+  width: 72%;
+  height: 20%;
+  transform: translateX(-50%);
+  border: 1px solid rgba(108, 73, 34, 0.2);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 36%, rgba(255, 242, 169, 0.76), rgba(199, 146, 71, 0.6) 48%, rgba(96, 66, 34, 0.22) 70%, transparent 72%);
+  box-shadow:
+    inset 0 2px 7px rgba(255, 255, 255, 0.58),
+    0 10px 16px rgba(57, 41, 22, 0.17);
+}
+
+.plot-base::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62%;
+  height: 42%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(101, 74, 42, 0.24);
+  filter: blur(3px);
+}
+
+.plot-tree {
+  position: absolute;
+  left: 50%;
+  bottom: 19%;
+  z-index: 3;
+  width: 112%;
+  height: 112%;
+  object-fit: contain;
+  transform: translateX(-50%) scale(var(--plot-scale));
+  transform-origin: 50% 82%;
+  filter:
+    drop-shadow(0 17px 15px rgba(46, 35, 19, 0.22))
+    drop-shadow(0 4px 2px rgba(255, 244, 163, 0.22));
+  pointer-events: none;
+}
+
+.plot-tree.stage-1 {
+  --plot-scale: 0.62;
+}
+
+.plot-tree.stage-2 {
+  --plot-scale: 0.76;
+}
+
+.plot-tree.stage-3 {
+  --plot-scale: 0.9;
+}
+
+.plot-tree.stage-4 {
+  --plot-scale: 1.02;
+}
+
+.plot-tree.stage-5 {
+  --plot-scale: 1.14;
+}
+
+.plot-empty-icon {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  z-index: 3;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(121, 85, 42, 0.22);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.78), transparent 34%),
+    linear-gradient(180deg, rgba(255, 244, 179, 0.94), rgba(114, 196, 102, 0.86));
+  box-shadow: 0 10px 16px rgba(50, 73, 33, 0.15), inset 0 -7px 11px rgba(66, 121, 55, 0.13);
+}
+
+.plot-empty-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.plot-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 4;
+  min-width: 56px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(112, 74, 33, 0.3);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 24% 6%, rgba(255, 255, 255, 0.8), transparent 30%),
+    linear-gradient(180deg, rgba(255, 250, 214, 0.95), rgba(238, 201, 119, 0.92));
+  color: #68431c;
+  box-shadow: 0 8px 14px rgba(55, 38, 17, 0.12);
+  font-size: 0.78rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.plot-pos-1 {
+  left: 50%;
+  top: 38%;
+}
+
+.plot-pos-2 {
+  left: 38%;
+  top: 40%;
+}
+
+.plot-pos-3 {
+  left: 62%;
+  top: 40%;
+}
+
+.plot-pos-4 {
+  left: 29%;
+  top: 50%;
+}
+
+.plot-pos-5 {
+  left: 72%;
+  top: 50%;
+}
+
+.plot-pos-6 {
+  left: 43%;
+  top: 56%;
+}
+
+.plot-pos-7 {
+  left: 57%;
+  top: 56%;
+}
+
+.plot-pos-8 {
+  left: 23%;
+  top: 64%;
+}
+
+.plot-pos-9 {
+  left: 78%;
+  top: 64%;
+}
+
+.plot-pos-10 {
+  left: 35%;
+  top: 70%;
+}
+
+.plot-pos-11 {
+  left: 65%;
+  top: 70%;
+}
+
+.plot-pos-12 {
+  left: 50%;
+  top: 73%;
 }
 
 .tree-selector {
   position: absolute;
   left: 50%;
   bottom: 18px;
+  z-index: 12;
   width: min(760px, calc(100% - 20px));
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -552,7 +777,7 @@ button {
 .tree-option {
   min-height: 92px;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 70px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   padding: 11px;
@@ -582,6 +807,19 @@ button {
 .tree-icon {
   width: 58px;
   height: 58px;
+}
+
+.tree-icon-img {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  filter: drop-shadow(0 9px 9px rgba(54, 40, 20, 0.2));
+}
+
+.metric .tree-icon-img {
+  width: 52px;
+  height: 52px;
+  justify-self: center;
 }
 
 .action-button,
@@ -845,8 +1083,8 @@ button {
     min-height: 420px;
   }
 
-  .hero-tree-area {
-    min-height: 520px;
+  .farm-field {
+    min-height: 620px;
   }
 
   .task-grid,
@@ -903,17 +1141,25 @@ button {
     border-radius: 24px;
   }
 
-  .hero-tree {
-    width: min(290px, 72vw);
-    top: 40%;
-  }
-
   .tree-selector {
     position: static;
     width: auto;
     grid-template-columns: 1fr;
     transform: none;
-    margin-top: 420px;
+    margin-top: 530px;
+  }
+
+  .farm-field {
+    min-height: auto;
+  }
+
+  .plot-layer {
+    inset: 0 0 142px;
+    min-height: 510px;
+  }
+
+  .farm-plot {
+    width: clamp(72px, 22vw, 110px);
   }
 
   .gm-row,
