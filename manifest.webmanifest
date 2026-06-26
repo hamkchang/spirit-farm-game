@@ -4,6 +4,7 @@
   "description": "以每日任務取得數數、培育三棵樹並攀登聖山的精緻遊戲原型。",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "landscape",
   "background_color": "#f1f6f5",
   "theme_color": "#5dbf72",
   "icons": [

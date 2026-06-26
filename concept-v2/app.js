@@ -394,7 +394,7 @@
     return `
       <section class="scene oasis">
         <div class="scene-content">
-          <aside class="panel">
+          <aside class="panel oasis-summary-panel">
             <div class="panel-head">
               <h2>綠洲總覽</h2>
               <span class="tag">${plantedCount(user)} / ${plotCount}</span>
@@ -417,7 +417,7 @@
             </div>
           </section>
 
-          <aside class="panel">
+          <aside class="panel oasis-action-panel">
             <div class="panel-head">
               <h2>${selectedPlot && selectedPlot.treeKey ? selectedTree.name : "選擇空地"}</h2>
               <span class="tag">${selectedPlot && selectedPlot.treeKey ? `第 ${selectedPlot.stage} 階` : "可種植"}</span>
